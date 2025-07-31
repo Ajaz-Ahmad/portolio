@@ -5,7 +5,7 @@ import React from "react";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Sparkles, Cpu, Brain } from "lucide-react";
-import LLMAgentChat from "./components/LLMAgentChat";
+import LLMAgentChat from "../components/LLMAgentChat";
 
 export default function Portfolio() {
   return (
