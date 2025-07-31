@@ -41,7 +41,7 @@ export default function Portfolio() {
                 <h3 className="text-xl font-semibold">Agentic AI</h3>
               </div>
               <p className="mt-2 text-gray-600">
-                Developed autonomous agents for clinical metadata correction and SOP navigation in histopathology.
+                Designed fallback-enabled agents with memory and tool use; created eval harnesses and orchestration flows beyond LangChain templates.
               </p>
             </CardContent>
           </Card>
@@ -63,6 +63,18 @@ export default function Portfolio() {
         <h2 className="text-2xl font-semibold mb-4">📂 Selected Projects</h2>
         <ul className="space-y-4 text-gray-700 list-disc list-inside">
           <li>
+            <strong>Multimodal QA Agent:</strong> Combined image-derived metadata, OCR, and GPT-4 agents to automate QA for pathology reports, achieving 95%+ accuracy.
+          </li>
+          <li>
+            <a href="/projects/rag-toolkit" className="text-blue-600 hover:underline">
+              <strong>RAG Evaluation Toolkit:</strong>
+            </a>
+            Framework for measuring groundedness and latency in LLM-RAG pipelines, used to optimize hybrid retrieval.
+          </li>
+          <li>
+            <strong>Wearable-Driven Health Assistant:</strong> Designed time-series-aware LLM agent that ingests simulated Fitbit logs and produces daily personalized insights using GPT-4 + rules engine.
+          </li>
+          <li>
             <strong>LLM Metadata Validator:</strong> GPT-4 assistant for verifying and correcting pathology slide metadata with structured JSON output.
           </li>
           <li>
@@ -72,6 +84,19 @@ export default function Portfolio() {
             <strong>Vision Segmentation Pipeline:</strong> Deployed MIL-based model for slide-level classification in colorectal cancer screening.
           </li>
         </ul>
+
+        <div className="flex space-x-4 mt-6">
+          <Button asChild>
+            <a href="https://github.com/ajaz/rag-eval-toolkit" target="_blank">
+              RAG Toolkit Code
+            </a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href="https://multimodal-agent.vercel.app" target="_blank">
+              Live Agent Demo
+            </a>
+          </Button>
+        </div>
       </section>
     </main>
   );
