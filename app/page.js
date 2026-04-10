@@ -6,6 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Sparkles, Cpu, Brain } from "lucide-react";
 import LLMAgentChat from "../components/LLMAgentChat";
+import WikiRAGChat from "../components/WikiRAGChat";
 
 export default function Portfolio() {
   return (
@@ -100,8 +101,19 @@ export default function Portfolio() {
         </div>
       </section>
       <section>
-          <LLMAgentChat />
-    </section>
+        <h2 className="text-2xl font-semibold mb-2">Wikipedia RAG Demo</h2>
+        <p className="text-gray-500 text-sm mb-4">
+          Load any Wikipedia article and ask questions — powered by a retrieval-augmented generation pipeline I built from scratch.{" "}
+          <a href="https://github.com/Ajaz-Ahmad/RAG/tree/main" target="_blank" className="text-blue-600 hover:underline">
+            View source on GitHub
+          </a>
+        </p>
+        <WikiRAGChat />
+      </section>
+
+      <section>
+        <LLMAgentChat />
+      </section>
     </main>
   );
 }
