@@ -1,12 +1,22 @@
 "use client";
 import { useState } from "react";
 
+// If NEXT_PUBLIC_RAG_BACKEND_URL is set (e.g. https://your-app.onrender.com),
+// the component calls the Python RAG API directly.
+// Otherwise it falls back to the built-in Next.js API routes.
+const RAG_BACKEND = process.env.NEXT_PUBLIC_RAG_BACKEND_URL?.replace(/\/$/, "") ?? "";
+
 const STEPS = { IDLE: "idle", INGESTING: "ingesting", READY: "ready", QUERYING: "querying" };
 
 export default function WikiRAGChat() {
   const [url, setUrl] = useState("");
   const [articleTitle, setArticleTitle] = useState("");
+
+  // Python-backend mode: store session_key (the URL)
+  // Next.js-routes mode: store chunks array
+  const [sessionKey, setSessionKey] = useState("");
   const [chunks, setChunks] = useState([]);
+
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(null);
   const [sources, setSources] = useState([]);
@@ -14,24 +24,39 @@ export default function WikiRAGChat() {
   const [step, setStep] = useState(STEPS.IDLE);
   const [error, setError] = useState("");
 
+  const usingBackend = Boolean(RAG_BACKEND);
+
   async function handleIngest(e) {
     e.preventDefault();
     setError("");
     setAnswer(null);
     setSources([]);
     setChunks([]);
+    setSessionKey("");
     setStep(STEPS.INGESTING);
 
     try {
-      const res = await fetch("/api/rag/ingest", {
+      const endpoint = usingBackend
+        ? `${RAG_BACKEND}/ingest`
+        : "/api/rag/ingest";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Ingestion failed.");
-      setChunks(data.chunks);
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Ingestion failed.");
+
       setArticleTitle(data.title);
+
+      if (usingBackend) {
+        // Python backend returns a session_key
+        setSessionKey(data.session_key);
+      } else {
+        // Next.js route returns the full chunks array (stored client-side)
+        setChunks(data.chunks);
+      }
       setStep(STEPS.READY);
     } catch (err) {
       setError(err.message);
@@ -49,13 +74,22 @@ export default function WikiRAGChat() {
     setStep(STEPS.QUERYING);
 
     try {
-      const res = await fetch("/api/rag/query", {
+      const endpoint = usingBackend
+        ? `${RAG_BACKEND}/query`
+        : "/api/rag/query";
+
+      const body = usingBackend
+        ? { question, session_key: sessionKey }
+        : { question, chunks };
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, chunks }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Query failed.");
+      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Query failed.");
+
       setAnswer(data.answer);
       setSources(data.sources ?? []);
       setNote(data.note ?? "");
@@ -69,12 +103,20 @@ export default function WikiRAGChat() {
   const isIngesting = step === STEPS.INGESTING;
   const isQuerying = step === STEPS.QUERYING;
   const hasArticle = step === STEPS.READY || isQuerying;
+  const chunkCount = usingBackend ? (sessionKey ? "loaded" : 0) : chunks.length;
 
   return (
-    <div className="max-w-3xl mx-auto mt-12 space-y-4">
+    <div className="max-w-3xl mx-auto mt-4 space-y-4">
       <div className="bg-white border rounded-xl shadow-sm p-6 space-y-4">
         <div>
-          <h2 className="text-xl font-semibold">Wikipedia RAG Assistant</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Wikipedia RAG Assistant</h2>
+            {usingBackend && (
+              <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-full px-2 py-0.5">
+                Python backend
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             Paste any English Wikipedia URL, then ask questions grounded in that article.
           </p>
@@ -104,12 +146,13 @@ export default function WikiRAGChat() {
           <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
             <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
             <span>
-              <strong>{articleTitle}</strong> — {chunks.length} chunks indexed
+              <strong>{articleTitle}</strong>
+              {!usingBackend && chunks.length > 0 && ` — ${chunks.length} chunks indexed`}
             </span>
           </div>
         )}
 
-        {/* Step 2 — Q&A (only after article loaded) */}
+        {/* Step 2 — Q&A */}
         {hasArticle && (
           <form onSubmit={handleQuery} className="flex gap-2">
             <input
@@ -130,7 +173,6 @@ export default function WikiRAGChat() {
           </form>
         )}
 
-        {/* Error */}
         {error && (
           <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             {error}
