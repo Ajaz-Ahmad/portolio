@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { Sparkles, Cpu, Brain } from "lucide-react";
 import LLMAgentChat from "../components/LLMAgentChat";
 import WikiRAGChat from "../components/WikiRAGChat";
+import ClinicalRAGChat from "../components/ClinicalRAGChat";
 
 export default function Portfolio() {
   return (
@@ -80,7 +81,10 @@ export default function Portfolio() {
             <strong>LLM Metadata Validator:</strong> GPT-4 assistant for verifying and correcting pathology slide metadata with structured JSON output.
           </li>
           <li>
-            <strong>Clinical RAG Assistant:</strong> LangChain-powered tool to retrieve SOPs, protocols and answer free-text medical questions.
+            <a href="https://github.com/Ajaz-Ahmad/RAG-Assistant" target="_blank" className="text-blue-600 hover:underline">
+              <strong>Clinical RAG Assistant:</strong>
+            </a>
+            {" "}Production-grade RAG system for clinical pathology data — LangChain agents, Qdrant vector DB, hybrid retrieval, OCR metadata extraction, and LLM fallback chains.
           </li>
           <li>
             <strong>Vision Segmentation Pipeline:</strong> Deployed MIL-based model for slide-level classification in colorectal cancer screening.
@@ -112,9 +116,20 @@ export default function Portfolio() {
       </section>
 
       <section>
+        <h2 className="text-2xl font-semibold mb-2">Clinical RAG Demo</h2>
+        <p className="text-gray-500 text-sm mb-4">
+          Hybrid retrieval (FAISS + BM25 with RRF fusion) over 12 pathology demo cases — the same architecture I built at Deciphex for 50k+ slides.{" "}
+          <a href="https://github.com/Ajaz-Ahmad/RAG-Assistant" target="_blank" className="text-blue-600 hover:underline">
+            View source on GitHub
+          </a>
+        </p>
+        <ClinicalRAGChat />
+      </section>
+
+      <section>
         <h2 className="text-2xl font-semibold mb-2">Chat with My CV</h2>
         <p className="text-gray-500 text-sm mb-4">
-          Ask anything about my background, skills, or experience — answered by Mistral-7B running on HuggingFace.
+          Ask anything about my background, skills, or experience — answered by Llama 3.3 via Groq.
         </p>
         <LLMAgentChat />
       </section>
