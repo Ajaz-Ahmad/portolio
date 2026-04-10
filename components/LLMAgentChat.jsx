@@ -9,17 +9,21 @@ export default function LLMAgentChat() {
   async function sendMessage() {
     if (!input.trim()) return;
     setLoading(true);
-    const res = await fetch("https://fcdb6a30691b1ee2ab.gradio.live", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: [input] })
-    });
-    const result = await res.json();
-    const reply = result.data?.[0] || "No response";
-
-    setMessages([...messages, { role: "user", text: input }, { role: "bot", text: reply }]);
-    setInput("");
-    setLoading(false);
+    try {
+      const res = await fetch("https://fcdb6a30691b1ee2ab.gradio.live", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: [input] })
+      });
+      const result = await res.json();
+      const reply = result.data?.[0] || "No response";
+      setMessages([...messages, { role: "user", text: input }, { role: "bot", text: reply }]);
+    } catch {
+      setMessages([...messages, { role: "user", text: input }, { role: "bot", text: "Agent is unavailable. Please try again later." }]);
+    } finally {
+      setInput("");
+      setLoading(false);
+    }
   }
 
   return (
