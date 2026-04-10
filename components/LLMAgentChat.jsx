@@ -60,7 +60,7 @@ export default function LLMAgentChat() {
       <div className="px-5 py-4 border-b">
         <h2 className="text-xl font-semibold">Ask About Ajaz</h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Powered by Mistral-7B on HuggingFace — ask anything about his background, skills, or experience.
+          Powered by Llama 3.3 (Groq) — ask anything about his background, skills, or experience.
         </p>
       </div>
 

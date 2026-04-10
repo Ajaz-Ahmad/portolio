@@ -51,8 +51,8 @@ export async function POST(request) {
     return NextResponse.json({ error: "Missing messages." }, { status: 400 });
   }
 
-  const hfToken = process.env.HF_TOKEN;
-  if (!hfToken) {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
     return NextResponse.json(
       { error: "Chat service is not configured. Please contact the portfolio owner." },
       { status: 503 }
@@ -60,7 +60,7 @@ export async function POST(request) {
   }
 
   const payload = {
-    model: "mistralai/Mistral-7B-Instruct-v0.3",
+    model: "llama-3.3-70b-versatile",
     messages: [
       {
         role: "system",
@@ -77,21 +77,18 @@ export async function POST(request) {
   };
 
   try {
-    const res = await fetch(
-      "https://router.huggingface.co/hf-inference/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${hfToken}`,
-        },
-        body: JSON.stringify(payload),
-      }
-    );
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${groqKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error?.message ?? `HuggingFace API returned ${res.status}`);
+      throw new Error(err?.error?.message ?? `Groq API returned ${res.status}`);
     }
 
     const data = await res.json();
