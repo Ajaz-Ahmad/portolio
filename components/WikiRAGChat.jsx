@@ -1,21 +1,15 @@
 "use client";
 import { useState } from "react";
 
-// Uses the HuggingFace Space as the RAG backend.
-// Override with NEXT_PUBLIC_RAG_BACKEND_URL env var if self-hosting elsewhere.
-const RAG_BACKEND = (process.env.NEXT_PUBLIC_RAG_BACKEND_URL ?? "https://ajaz1202-wikipedia-rag-api.hf.space").replace(/\/$/, "");
-
+// Always calls Next.js API routes — they proxy to the Python backend
+// server-side, avoiding any CORS issues with the HF Space.
 const STEPS = { IDLE: "idle", INGESTING: "ingesting", READY: "ready", QUERYING: "querying" };
 
 export default function WikiRAGChat() {
   const [url, setUrl] = useState("");
   const [articleTitle, setArticleTitle] = useState("");
-
-  // Python-backend mode: store session_key (the URL)
-  // Next.js-routes mode: store chunks array
-  const [sessionKey, setSessionKey] = useState("");
-  const [chunks, setChunks] = useState([]);
-
+  const [sessionKey, setSessionKey] = useState("");   // set when Python backend is active
+  const [chunks, setChunks] = useState([]);           // set when JS fallback is active
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(null);
   const [sources, setSources] = useState([]);
@@ -23,39 +17,21 @@ export default function WikiRAGChat() {
   const [step, setStep] = useState(STEPS.IDLE);
   const [error, setError] = useState("");
 
-  const usingBackend = true;
-
   async function handleIngest(e) {
     e.preventDefault();
-    setError("");
-    setAnswer(null);
-    setSources([]);
-    setChunks([]);
-    setSessionKey("");
+    setError(""); setAnswer(null); setSources([]); setChunks([]); setSessionKey("");
     setStep(STEPS.INGESTING);
-
     try {
-      const endpoint = usingBackend
-        ? `${RAG_BACKEND}/ingest`
-        : "/api/rag/ingest";
-
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/rag/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Ingestion failed.");
-
+      if (!res.ok) throw new Error(data.error ?? "Ingestion failed.");
       setArticleTitle(data.title);
-
-      if (usingBackend) {
-        // Python backend returns a session_key
-        setSessionKey(data.session_key);
-      } else {
-        // Next.js route returns the full chunks array (stored client-side)
-        setChunks(data.chunks);
-      }
+      if (data.mode === "backend") setSessionKey(data.session_key);
+      else setChunks(data.chunks);
       setStep(STEPS.READY);
     } catch (err) {
       setError(err.message);
@@ -66,29 +42,17 @@ export default function WikiRAGChat() {
   async function handleQuery(e) {
     e.preventDefault();
     if (!question.trim()) return;
-    setError("");
-    setAnswer(null);
-    setSources([]);
-    setNote("");
+    setError(""); setAnswer(null); setSources([]); setNote("");
     setStep(STEPS.QUERYING);
-
     try {
-      const endpoint = usingBackend
-        ? `${RAG_BACKEND}/query`
-        : "/api/rag/query";
-
-      const body = usingBackend
-        ? { question, session_key: sessionKey }
-        : { question, chunks };
-
-      const res = await fetch(endpoint, {
+      const body = sessionKey ? { question, session_key: sessionKey } : { question, chunks };
+      const res = await fetch("/api/rag/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ?? data.error ?? "Query failed.");
-
+      if (!res.ok) throw new Error(data.error ?? "Query failed.");
       setAnswer(data.answer);
       setSources(data.sources ?? []);
       setNote(data.note ?? "");
@@ -102,20 +66,13 @@ export default function WikiRAGChat() {
   const isIngesting = step === STEPS.INGESTING;
   const isQuerying = step === STEPS.QUERYING;
   const hasArticle = step === STEPS.READY || isQuerying;
-  const chunkCount = usingBackend ? (sessionKey ? "loaded" : 0) : chunks.length;
+  const chunkCount = chunks.length;
 
   return (
     <div className="max-w-3xl mx-auto mt-4 space-y-4">
       <div className="bg-white border rounded-xl shadow-sm p-6 space-y-4">
         <div>
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Wikipedia RAG Assistant</h2>
-            {usingBackend && (
-              <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-full px-2 py-0.5">
-                Python backend
-              </span>
-            )}
-          </div>
+          <h2 className="text-xl font-semibold">Wikipedia RAG Assistant</h2>
           <p className="text-sm text-gray-500 mt-1">
             Paste any English Wikipedia URL, then ask questions grounded in that article.
           </p>
@@ -146,7 +103,7 @@ export default function WikiRAGChat() {
             <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
             <span>
               <strong>{articleTitle}</strong>
-              {!usingBackend && chunks.length > 0 && ` — ${chunks.length} chunks indexed`}
+              {chunkCount > 0 && ` — ${chunkCount} chunks indexed`}
             </span>
           </div>
         )}

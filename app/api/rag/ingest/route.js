@@ -1,108 +1,85 @@
 import { NextResponse } from "next/server";
 
+// Server-side only — no NEXT_PUBLIC_ prefix intentionally.
+// When set, requests are proxied to the Python backend (no CORS issues).
+// When absent, the built-in JS pipeline runs directly on Vercel.
+const RAG_BACKEND = process.env.RAG_BACKEND_URL?.replace(/\/$/, "");
+
+// ── Built-in JS pipeline (fallback) ─────────────────────────────────────────
+
 const MAX_WORDS_PER_CHUNK = 200;
 
-/**
- * Parse Wikipedia plain-text extract (from the MediaWiki API) into
- * section-aware paragraphs, mirroring the Python project's loader.py.
- * Headings are encoded as == Section == and === Subsection === in the extract.
- */
 function parseWikipediaExtract(text, url) {
   const lines = text.split("\n");
   const rawChunks = [];
-
   let section = "";
   let subsection = "";
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-
-    const h2 = trimmed.match(/^==\s+(.+?)\s+==$/);
-    const h3 = trimmed.match(/^===\s+(.+?)\s+===$/);
     const h4 = trimmed.match(/^====\s+(.+?)\s+====$/);
-
-    if (h4) {
-      subsection = h4[1];
-    } else if (h3) {
-      subsection = h3[1];
-    } else if (h2) {
-      section = h2[1];
-      subsection = "";
-    } else {
-      // Paragraph
-      rawChunks.push({ text: trimmed, section, subsection, source: url });
-    }
+    const h3 = trimmed.match(/^===\s+(.+?)\s+===$/);
+    const h2 = trimmed.match(/^==\s+(.+?)\s+==$/);
+    if (h4) { subsection = h4[1]; }
+    else if (h3) { subsection = h3[1]; }
+    else if (h2) { section = h2[1]; subsection = ""; }
+    else { rawChunks.push({ text: trimmed, section, subsection, source: url }); }
   }
-
   return rawChunks;
 }
 
-/**
- * Merge consecutive paragraphs that share the same section into single chunks,
- * keeping each chunk under MAX_WORDS_PER_CHUNK — mirrors chunker.py's merge logic.
- */
 function mergeChunks(rawChunks) {
   const merged = [];
-  let currentSection = null;
-  let currentSubsection = null;
-  let currentText = "";
-  let currentSource = "";
+  let curSection = null, curSubsection = null, curText = "", curSource = "";
 
   function flush() {
-    if (currentText.trim().length > 80) {
-      merged.push({ section: currentSection, subsection: currentSubsection, text: currentText.trim(), source: currentSource });
-    }
+    if (curText.trim().length > 80)
+      merged.push({ section: curSection, subsection: curSubsection, text: curText.trim(), source: curSource });
   }
 
   for (const chunk of rawChunks) {
-    const sameSection = chunk.section === currentSection && chunk.subsection === currentSubsection;
-    const incomingWords = chunk.text.split(/\s+/).length;
-    const currentWords = currentText.split(/\s+/).length;
-
-    if (!sameSection) {
-      flush();
-      currentSection = chunk.section;
-      currentSubsection = chunk.subsection;
-      currentText = chunk.text;
-      currentSource = chunk.source;
-    } else if (currentWords + incomingWords > MAX_WORDS_PER_CHUNK) {
-      flush();
-      currentText = chunk.text;
-    } else {
-      currentText += " " + chunk.text;
-    }
+    const same = chunk.section === curSection && chunk.subsection === curSubsection;
+    const words = (curText + " " + chunk.text).split(/\s+/).length;
+    if (!same) { flush(); curSection = chunk.section; curSubsection = chunk.subsection; curText = chunk.text; curSource = chunk.source; }
+    else if (words > MAX_WORDS_PER_CHUNK) { flush(); curText = chunk.text; }
+    else { curText += " " + chunk.text; }
   }
   flush();
-
   return merged.map((c, i) => ({ id: i, ...c }));
 }
 
+// ── Route handler ────────────────────────────────────────────────────────────
+
 export async function POST(request) {
   let url;
-  try {
-    ({ url } = await request.json());
-  } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  try { ({ url } = await request.json()); }
+  catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
+
+  if (!url || !url.includes("en.wikipedia.org/wiki/"))
+    return NextResponse.json({ error: "Please provide a valid English Wikipedia URL." }, { status: 400 });
+
+  // ── Proxy to Python backend ──────────────────────────────────────────────
+  if (RAG_BACKEND) {
+    try {
+      const res = await fetch(`${RAG_BACKEND}/ingest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail ?? "Backend ingest failed.");
+      // Return session_key so the query route can proxy correctly
+      return NextResponse.json({ title: data.title, session_key: data.session_key, total: data.chunks_count, mode: "backend" });
+    } catch (err) {
+      return NextResponse.json({ error: err.message }, { status: 502 });
+    }
   }
 
-  if (!url || typeof url !== "string") {
-    return NextResponse.json({ error: "Missing url field." }, { status: 400 });
-  }
-
+  // ── Built-in JS pipeline ─────────────────────────────────────────────────
   const match = url.match(/en\.wikipedia\.org\/wiki\/([^#?]+)/);
-  if (!match) {
-    return NextResponse.json(
-      { error: "Please provide a valid English Wikipedia URL, e.g. https://en.wikipedia.org/wiki/Diabetes" },
-      { status: 400 }
-    );
-  }
-
   const title = decodeURIComponent(match[1].replace(/_/g, " "));
-
-  const apiUrl =
-    `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=true` +
-    `&titles=${encodeURIComponent(title)}&format=json&origin=*`;
+  const apiUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=true&titles=${encodeURIComponent(title)}&format=json&origin=*`;
 
   let data;
   try {
@@ -113,19 +90,13 @@ export async function POST(request) {
     return NextResponse.json({ error: `Failed to fetch Wikipedia article: ${err.message}` }, { status: 502 });
   }
 
-  const pages = data?.query?.pages ?? {};
-  const page = Object.values(pages)[0];
-
-  if (!page || page.missing !== undefined) {
+  const page = Object.values(data?.query?.pages ?? {})[0];
+  if (!page || page.missing !== undefined)
     return NextResponse.json({ error: `Wikipedia article "${title}" not found.` }, { status: 404 });
-  }
 
-  const rawChunks = parseWikipediaExtract(page.extract ?? "", url);
-  const chunks = mergeChunks(rawChunks);
-
-  if (chunks.length === 0) {
+  const chunks = mergeChunks(parseWikipediaExtract(page.extract ?? "", url));
+  if (chunks.length === 0)
     return NextResponse.json({ error: "Could not extract any content from this article." }, { status: 422 });
-  }
 
-  return NextResponse.json({ title: page.title, chunks, total: chunks.length });
+  return NextResponse.json({ title: page.title, chunks, total: chunks.length, mode: "js" });
 }
