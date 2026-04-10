@@ -68,10 +68,10 @@ export default function Portfolio() {
             <strong>Multimodal QA Agent:</strong> Combined image-derived metadata, OCR, and GPT-4 agents to automate QA for pathology reports, achieving 95%+ accuracy.
           </li>
           <li>
-            <a href="/projects/rag-toolkit" className="text-blue-600 hover:underline">
+            <a href="https://github.com/Ajaz-Ahmad/RAG/tree/main" target="_blank" className="text-blue-600 hover:underline">
               <strong>RAG Evaluation Toolkit:</strong>
             </a>
-            Framework for measuring groundedness and latency in LLM-RAG pipelines, used to optimize hybrid retrieval.
+            {" "}Wikipedia RAG pipeline with BM25 + FAISS hybrid retrieval, section-aware chunking, and GPT generation. Deployed on HuggingFace Spaces.
           </li>
           <li>
             <strong>Wearable-Driven Health Assistant:</strong> Designed time-series-aware LLM agent that ingests simulated Fitbit logs and produces daily personalized insights using GPT-4 + rules engine.
@@ -89,13 +89,13 @@ export default function Portfolio() {
 
         <div className="flex space-x-4 mt-6">
           <Button asChild>
-            <a href="https://github.com/ajaz/rag-eval-toolkit" target="_blank">
+            <a href="https://github.com/Ajaz-Ahmad/RAG/tree/main" target="_blank">
               RAG Toolkit Code
             </a>
           </Button>
           <Button asChild variant="outline">
-            <a href="https://multimodal-agent.vercel.app" target="_blank">
-              Live Agent Demo
+            <a href="https://ajaz1202-wikipedia-rag-api.hf.space/docs" target="_blank">
+              Live API Docs
             </a>
           </Button>
         </div>
@@ -112,6 +112,10 @@ export default function Portfolio() {
       </section>
 
       <section>
+        <h2 className="text-2xl font-semibold mb-2">Chat with My CV</h2>
+        <p className="text-gray-500 text-sm mb-4">
+          Ask anything about my background, skills, or experience — answered by Mistral-7B running on HuggingFace.
+        </p>
         <LLMAgentChat />
       </section>
     </main>
