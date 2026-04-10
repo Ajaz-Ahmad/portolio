@@ -1,10 +1,9 @@
 "use client";
 import { useState } from "react";
 
-// If NEXT_PUBLIC_RAG_BACKEND_URL is set (e.g. https://your-app.onrender.com),
-// the component calls the Python RAG API directly.
-// Otherwise it falls back to the built-in Next.js API routes.
-const RAG_BACKEND = process.env.NEXT_PUBLIC_RAG_BACKEND_URL?.replace(/\/$/, "") ?? "";
+// Uses the HuggingFace Space as the RAG backend.
+// Override with NEXT_PUBLIC_RAG_BACKEND_URL env var if self-hosting elsewhere.
+const RAG_BACKEND = (process.env.NEXT_PUBLIC_RAG_BACKEND_URL ?? "https://ajaz1202-wikipedia-rag-api.hf.space").replace(/\/$/, "");
 
 const STEPS = { IDLE: "idle", INGESTING: "ingesting", READY: "ready", QUERYING: "querying" };
 
@@ -24,7 +23,7 @@ export default function WikiRAGChat() {
   const [step, setStep] = useState(STEPS.IDLE);
   const [error, setError] = useState("");
 
-  const usingBackend = Boolean(RAG_BACKEND);
+  const usingBackend = true;
 
   async function handleIngest(e) {
     e.preventDefault();
